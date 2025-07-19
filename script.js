@@ -57,7 +57,7 @@ function calculateTaxesNYC(income) {
     return federal + state + city + fica;
   }
   
-  function runCalculator({ workingIncome, sahpIncome, kids, childcarePerKid }) {
+  function runCalculator({ workingIncome, sahpIncome, childcareCosts }) {
     const currentTax = calculateTaxesNYC(workingIncome);
     const currentTakeHome = workingIncome - currentTax;
   
@@ -65,7 +65,7 @@ function calculateTaxesNYC(income) {
     const newTax = calculateTaxesNYC(combinedIncome);
     const newTakeHome = combinedIncome - newTax;
   
-    const childcareCost = kids * childcarePerKid;
+    const childcareCost = childcareCosts.reduce((sum, amt) => sum + amt, 0);
   
     const delta = newTakeHome - (currentTakeHome + childcareCost);
   
@@ -81,17 +81,42 @@ function calculateTaxesNYC(income) {
   window.addEventListener("DOMContentLoaded", () => {
     const form = document.getElementById("calc-form");
     const result = document.getElementById("calc-result");
+    const childcareList = document.getElementById("childcare-list");
+    const addKidBtn = document.getElementById("add-kid");
+  
+    addKidBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      const wrapper = document.createElement("div");
+      wrapper.className = "childcare-wrapper";
+  
+      const input = document.createElement("input");
+      input.type = "number";
+      input.placeholder = "Childcare Cost (annual)";
+      input.classList.add("childcare-entry");
+  
+      const removeBtn = document.createElement("button");
+      removeBtn.textContent = "Remove";
+      removeBtn.type = "button";
+      removeBtn.addEventListener("click", () => {
+        childcareList.removeChild(wrapper);
+      });
+  
+      wrapper.appendChild(input);
+      wrapper.appendChild(removeBtn);
+      childcareList.appendChild(wrapper);
+    });
   
     form.addEventListener("submit", (e) => {
       e.preventDefault();
   
       const workingIncome = parseFloat(form.workingIncome.value);
       const sahpIncome = parseFloat(form.sahpIncome.value);
-      const kids = parseInt(form.kids.value);
-      const childcarePerKid = parseFloat(form.childcarePerKid.value);
+      const childcareInputs = form.querySelectorAll(".childcare-entry");
+      const childcareCosts = Array.from(childcareInputs).map(inp => parseFloat(inp.value) || 0);
   
-      const output = runCalculator({ workingIncome, sahpIncome, kids, childcarePerKid });
-  
+      const output = runCalculator({ workingIncome, sahpIncome, childcareCosts });
+      result.style.display = "block";
+
       result.innerHTML = `
         <p>Current Take-Home: $${output.currentTakeHome.toFixed(2)}</p>
         <p>New Take-Home (with both incomes): $${output.newTakeHome.toFixed(2)}</p>

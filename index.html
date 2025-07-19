@@ -2,18 +2,31 @@
 <html>
 <head>
   <title>Childcare Return-to-Work Calculator</title>
+  <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <h1>Should SAHP go back to work?</h1>
-  <form id="calc-form">
-    <label>Working Parent Income (annual): $<input name="workingIncome" required></label><br>
-    <label>SAHP Potential Income (annual): $<input name="sahpIncome" required></label><br>
-    <label>Number of Kids: <input name="kids" type="number" required></label><br>
-    <label>Childcare Cost per Kid (annual): $<input name="childcarePerKid" required></label><br>
-    <button type="submit">Calculate</button>
-  </form>
-  <div id="calc-result" style="margin-top:1em;"></div>
-
-  <script src="script.js"></script>
-</body>
+    <div id="container">
+      <h1>Should SAHP go back to work?</h1>
+      <p>Calculations based on NYC taxes married filing jointly in 2024.</p>
+      <form id="calc-form">
+        <label>Working Parent Income (annual): $
+          <input name="workingIncome" required value="240000">
+        </label>
+        <label>SAHP Potential Income (annual): $
+          <input name="sahpIncome" required value="100000">
+        </label>
+        <label>Childcare Costs per Kid (annual):</label>
+        <div id="childcare-list">
+          <div class="childcare-wrapper">
+            <input type="number" class="childcare-entry" placeholder="Childcare Cost (annual)" value="36000">
+          </div>
+        </div>
+        <button id="add-kid">Add Another Kid</button>
+        <button type="submit">Calculate</button>
+      </form>
+      <div id="calc-result"></div>
+    </div>
+    <script src="script.js"></script>
+  </body>
+  
 </html>
