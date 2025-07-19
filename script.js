@@ -1,7 +1,7 @@
 // childcare_calculator.js
 // rough web calculator for evaluating if SAHP returning to work is net positive
 
-function calculateTaxesNYC(income) {
+function calculateTaxesNYC(income, childTaxCredit = 0) {
     // simplified, assumes all income is wages and no deductions/credits
   
     // federal tax brackets for 2024 (married filing jointly)
@@ -48,32 +48,64 @@ function calculateTaxesNYC(income) {
       return tax;
     };
   
-    const fica = 0.0765 * Math.min(income, 168600); // SS + Medicare up to wage cap
-  
-    const federal = calculateBracketTax(income, federalBrackets);
+    const fica = 0.0765 * Math.min(income, 168600);
+    const federal = calculateBracketTax(income, federalBrackets) - childTaxCredit;
     const state = calculateBracketTax(income, nyBrackets);
     const city = calculateBracketTax(income, nycBrackets);
   
-    return federal + state + city + fica;
+    return Math.max(0, federal + state + city + fica);
   }
   
-  function runCalculator({ workingIncome, sahpIncome, childcareCosts }) {
-    const currentTax = calculateTaxesNYC(workingIncome);
+  function runCalculator({ workingIncome, sahpIncome, childcareCosts, useFSA = false }) {
+    const numKids = childcareCosts.length;
+    const childTaxCredit = Math.min(numKids * 2000, 4000); // conservative simplification
+  
+    let adjustedChildcareCosts = [...childcareCosts];
+    let fsaUsed = 0;
+    if (useFSA) {
+      let fsaRemaining = 5000;
+      adjustedChildcareCosts = adjustedChildcareCosts.map(cost => {
+        const applied = Math.min(cost, fsaRemaining);
+        fsaRemaining -= applied;
+        fsaUsed += applied;
+        return cost - applied;
+      });
+    }
+  
+    const currentTax = calculateTaxesNYC(workingIncome, childTaxCredit);
     const currentTakeHome = workingIncome - currentTax;
   
     const combinedIncome = workingIncome + sahpIncome;
-    const newTax = calculateTaxesNYC(combinedIncome);
+    const newTax = calculateTaxesNYC(combinedIncome, childTaxCredit);
     const newTakeHome = combinedIncome - newTax;
   
-    const childcareCost = childcareCosts.reduce((sum, amt) => sum + amt, 0);
+    const childcareCost = adjustedChildcareCosts.reduce((sum, amt) => sum + amt, 0);
   
     const delta = newTakeHome - (currentTakeHome + childcareCost);
+  
+    const breakEvenIncome = (() => {
+      let low = 0, high = 300000;
+      for (let i = 0; i < 20; i++) {
+        const mid = (low + high) / 2;
+        const midCombined = workingIncome + mid;
+        const midTax = calculateTaxesNYC(midCombined, childTaxCredit);
+        const midTakeHome = midCombined - midTax;
+        const netDelta = midTakeHome - (currentTakeHome + childcareCost);
+        if (Math.abs(netDelta) < 1) return mid;
+        if (netDelta > 0) high = mid;
+        else low = mid;
+      }
+      return (low + high) / 2;
+    })();
   
     return {
       currentTakeHome,
       newTakeHome,
       childcareCost,
       delta,
+      breakEvenIncome,
+      childTaxCredit,
+      fsaUsed
     };
   }
   
@@ -113,15 +145,19 @@ function calculateTaxesNYC(income) {
       const sahpIncome = parseFloat(form.sahpIncome.value);
       const childcareInputs = form.querySelectorAll(".childcare-entry");
       const childcareCosts = Array.from(childcareInputs).map(inp => parseFloat(inp.value) || 0);
+      const useFSA = form.useFSA?.checked || false;
   
-      const output = runCalculator({ workingIncome, sahpIncome, childcareCosts });
+      const output = runCalculator({ workingIncome, sahpIncome, childcareCosts, useFSA });
+  
       result.style.display = "block";
-
       result.innerHTML = `
         <p>Current Take-Home: $${output.currentTakeHome.toFixed(2)}</p>
         <p>New Take-Home (with both incomes): $${output.newTakeHome.toFixed(2)}</p>
         <p>Childcare Cost: $${output.childcareCost.toFixed(2)}</p>
         <p><strong>${output.delta >= 0 ? "Surplus" : "Deficit"} from SAHP Working: $${output.delta.toFixed(2)}</strong></p>
+        ${output.delta < 0 ? `<p><em>Break-even SAHP salary to cover childcare: $${output.breakEvenIncome.toFixed(2)}</em></p>` : ""}
+        <p>Child Tax Credit Applied: $${output.childTaxCredit.toFixed(2)}</p>
+        ${output.fsaUsed > 0 ? `<p>Pre-tax FSA Savings Applied: $${output.fsaUsed.toFixed(2)}</p>` : ""}
       `;
     });
   });
